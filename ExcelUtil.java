@@ -552,6 +552,8 @@ public class ExcelUtil {
 
 }
 
+ /*<-------------------------异常类----------------------------------------------->*/
+
 class ExcelException extends Exception {
   public ExcelException() {
     // TODO Auto-generated constructor stub
@@ -573,4 +575,51 @@ class ExcelException extends Exception {
   }
 }
 
+ /*<-------------------------控制层----------------------------------------------->*/
 
+//控制层调用ExcelUtil类中的方法，导出报表
+ @RequestMapping(value = "/exportTest", method = RequestMethod.GET)
+  public void exportExcel(HttpServletResponse response, HttpSession session,
+                                   String dateStart, String dateEnd, String coinType, String columnName, String sort) throws ExcelException, IOException {
+    Users admin = (Users) session.getAttribute("user");
+
+
+    HSSFWorkbook workbook = new HSSFWorkbook();
+
+    if ("descend".equals(sort)) {
+      sort = "desc";
+    } else if ("ascend".equals(sort)) {
+      sort = "asc";
+    }
+
+    if ("confirmTime".equals(columnName)) {
+      columnName = "confirm_time";
+    }
+
+    Map<String, Object> usdRate = (Map<String, Object>) cnyRateService.queryRate("USD");
+
+    List<Map<String, Object>> orderList = queryOrderMapper.getOrderComplete(dateStart, dateEnd, coinType, columnName, sort);
+
+    for (Map<String, Object> order : orderList) {
+      for (String k : order.keySet()) {
+        if ("moneyName".equals(k)) {
+          if ("USD".equals(order.get(k))) {
+            order.put("total", ((BigDecimal) usdRate.get("rate")).multiply((BigDecimal) order.get("total")).doubleValue());
+          }
+        }
+      }
+    }
+
+    LinkedHashMap<String, String> head = new LinkedHashMap<String, String>();
+    head.put("number", "序号");
+    head.put("createTime", "创建时间");
+    head.put("****", "****");
+    head.put("****", "****");
+    head.put("****", "****");
+    head.put("****", "****");
+  
+    String sheetName = "已完成订单";
+    
+    ExcelUtil.listToExcel(orderList,head,sheetName,10,response);
+    
+  }
